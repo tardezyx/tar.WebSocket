@@ -257,6 +257,10 @@ namespace tar.WebSocket {
 
           CheckIfStateHasChanged();
 
+          if (_clientWebSocket.State == WebSocketState.Closed) {
+            break;
+          }
+
           if (receiveResult.MessageType == WebSocketMessageType.Close) {
             // the server is notifying us that the connection will close
             _sendTokenSource?.Cancel();
