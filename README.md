@@ -1,5 +1,7 @@
 # tar.WebSocket
 
+![](https://img.shields.io/nuget/dt/tar.WebSocket) [![](https://img.shields.io/nuget/v/tar.WebSocket)](https://www.nuget.org/packages/tar.WebSocket)
+
  - [X] C# .NET Standard v2.0
 
 ## Function
