@@ -2,15 +2,26 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>$(VersionPrefix)1.0.0</Version>
+    <Version>$(VersionPrefix)1.0.1</Version>
     <Description>A ClientWebSocket wrapper with callback events and correct close frame handling</Description>
-    <Copyright></Copyright>
+    <Copyright>© tar 2024, Germany. GNU GPL v3</Copyright>
     <Authors>tar</Authors>
     <PackageTags>websocket; websocketclient; web socket; web socket client; socketclient</PackageTags>
     <RepositoryUrl></RepositoryUrl>
     <PackageProjectUrl>https://github.com/tardezyx/tar.WebSocket</PackageProjectUrl>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <NeutralLanguage>en</NeutralLanguage>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+    <None Update="LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>

@@ -30,12 +30,13 @@ namespace tar.WebSocket {
     }
 
     public void Abort() {
-      CheckIfStateHasChanged();
       _listenTokenSource.Cancel();
       _sendTokenSource.Cancel();
-
       _clientWebSocket.Abort();
+      CheckIfStateHasChanged();
+
       _clientWebSocket = null;
+      _closed = DateTime.UtcNow;
       CheckIfStateHasChanged();
     }
 
@@ -190,6 +191,8 @@ namespace tar.WebSocket {
 
     private void CreateClientWebSocket() {
       _clientWebSocket = new ClientWebSocket();
+      _opened = null;
+      _closed = null;
 
       if (_options is null) {
         _clientWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(1);
@@ -242,7 +245,11 @@ namespace tar.WebSocket {
           do {
             receiveResult = await _clientWebSocket.ReceiveAsync(messageBuffer, _listenTokenSource.Token);
             memoryStream.Write(messageBuffer.Array, messageBuffer.Offset, receiveResult.Count);
-          } while (!receiveResult.EndOfMessage);
+          } while (
+            !receiveResult.EndOfMessage
+            && _clientWebSocket.State != WebSocketState.Closed
+            && !_listenTokenSource.Token.IsCancellationRequested
+          );
           
           CheckIfStateHasChanged();
 
