@@ -7,8 +7,8 @@ namespace tar.WebSocket {
     public X509CertificateCollection ClientCertificates { get; set; }
     public CookieContainer Cookies { get; set; }
     public ICredentials Credentials { get; set; }
-    public IWebProxy Proxy { get; set; }
     public TimeSpan KeepAliveInterval { get; set; }
+    public IWebProxy Proxy { get; set; }
     public bool? UseDefaultCredentials { get; set; }
   }
 }

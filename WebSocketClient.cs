@@ -30,12 +30,13 @@ namespace tar.WebSocket {
     }
 
     public void Abort() {
-      CheckIfStateHasChanged();
       _listenTokenSource.Cancel();
       _sendTokenSource.Cancel();
-
       _clientWebSocket.Abort();
+      CheckIfStateHasChanged();
+
       _clientWebSocket = null;
+      _closed = DateTime.UtcNow;
       CheckIfStateHasChanged();
     }
 
@@ -61,11 +62,17 @@ namespace tar.WebSocket {
         CheckIfStateHasChanged();
       }
 
+      DateTime now = DateTime.UtcNow;
+
       var webSocketInfo = new WebSocketClientInfo() {
         ClientAction = clientAction,
         ClientActionDescription = clientAction.ToString(),
         Closed = _closed,
-        Duration = _closed != null && _opened != null ? _closed - _opened : null,
+        Duration = _opened != null && _closed != null
+          ? _closed - _opened
+          : _opened != null
+            ? now - _opened
+            : null,
         ErrorMessage = errorMessage,
         Opened = _opened,
         ReceivedMessage = receivedMessage,
@@ -75,7 +82,7 @@ namespace tar.WebSocket {
         State = _clientWebSocket?.State,
         StateDescription = _clientWebSocket?.State is WebSocketState state ? state.ToString() : null,
         Success = success,
-        Timestamp = DateTime.UtcNow,
+        Timestamp = now,
         TriggeredByClient = triggeredByClient,
         Url = _url
       };
@@ -190,6 +197,8 @@ namespace tar.WebSocket {
 
     private void CreateClientWebSocket() {
       _clientWebSocket = new ClientWebSocket();
+      _opened = null;
+      _closed = null;
 
       if (_options is null) {
         _clientWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(1);
@@ -234,55 +243,64 @@ namespace tar.WebSocket {
 
       try {
         while (
-          _clientWebSocket != null
-          && _clientWebSocket.State != WebSocketState.Closed
-          && _listenTokenSource != null
-          && !_listenTokenSource.Token.IsCancellationRequested
+          _clientWebSocket != null && (
+            _clientWebSocket.State == WebSocketState.CloseSent ||
+            _clientWebSocket.State == WebSocketState.Connecting ||
+            _clientWebSocket.State == WebSocketState.Open
+          ) &&
+          _listenTokenSource != null &&
+          !_listenTokenSource.Token.IsCancellationRequested
         ) {
+          // if the token is cancelled while ReceiveAsync is blocking,
+          // the socket state changes to aborted and it cannot be used
           do {
             receiveResult = await _clientWebSocket.ReceiveAsync(messageBuffer, _listenTokenSource.Token);
             memoryStream.Write(messageBuffer.Array, messageBuffer.Offset, receiveResult.Count);
-          } while (!receiveResult.EndOfMessage);
-          
+          } while (
+            !receiveResult.EndOfMessage &&
+            !_listenTokenSource.Token.IsCancellationRequested
+          );
+
           CheckIfStateHasChanged();
 
-          // if the token is cancelled while ReceiveAsync is blocking,
-          // the socket state changes to aborted and it cannot be used
-          if (!_listenTokenSource.Token.IsCancellationRequested) {
-            if (
-              _clientWebSocket.State == WebSocketState.CloseReceived
-              && receiveResult.MessageType == WebSocketMessageType.Close
-            ) {
-              // the server is notifying us that the connection will close
-              _sendTokenSource?.Cancel();
+          if (_clientWebSocket.State == WebSocketState.Closed) {
+            break;
+          }
 
-              // acknowledging the received close frame from server
-              await _clientWebSocket.CloseOutputAsync(
-                WebSocketCloseStatus.NormalClosure,
-                "Acknowledge close frame",
-                CancellationToken.None
-              );
+          if (receiveResult.MessageType == WebSocketMessageType.Close) {
+            // the server is notifying us that the connection will close
+            _sendTokenSource?.Cancel();
 
-              Callback(
-                clientAction: WebSocketClientAction.Closing,
-                triggeredByClient: false,
-                success: true
-              );
-            }
+            // acknowledging the received close frame from server
+            await _clientWebSocket.CloseOutputAsync(
+              WebSocketCloseStatus.NormalClosure,
+              "Acknowledge close frame",
+              CancellationToken.None
+            );
 
-            // handle received text or binary data
-            if (
-              _clientWebSocket.State == WebSocketState.Open
-              && receiveResult.MessageType != WebSocketMessageType.Close
-            ) {
-              string jsonMessage = Encoding.UTF8.GetString(memoryStream.ToArray());
+            Callback(
+              clientAction: WebSocketClientAction.Closing,
+              success: true,
+              triggeredByClient: false
+            );
 
-              Callback(
-                clientAction: WebSocketClientAction.MessageReceived,
-                triggeredByClient: false,
-                receivedMessage: jsonMessage
-              );
-            }
+            _listenTokenSource?.Cancel();
+          }
+          
+          if (_listenTokenSource.Token.IsCancellationRequested) {
+            break;
+          }
+
+          // handle received text or binary data
+          if (
+            receiveResult.MessageType == WebSocketMessageType.Binary ||
+            receiveResult.MessageType == WebSocketMessageType.Text
+          ) {
+            Callback(
+              clientAction: WebSocketClientAction.MessageReceived,
+              receivedMessage: Encoding.UTF8.GetString(memoryStream.ToArray()),
+              triggeredByClient: false
+            );
           }
 
           memoryStream.SetLength(0);
@@ -301,7 +319,7 @@ namespace tar.WebSocket {
 
         CheckIfStateHasChanged();
         // => state is Closed or Aborted
-        
+
         // a closed/aborted ClientWebSocket cannot be re-used
         // => dispose and nullify it
         _clientWebSocket?.Dispose();
