@@ -11,8 +11,8 @@ It basically wraps the functionality of `System.Net.WebSockets.ClientWebSocket` 
 - the correct close handling when the client or the server triggers the closure
 - the possibility to re-connect after the web socket state has once been set to `Closed` or `Aborted`
 - an `OnAction` event which can be subscribed for callbacks whenever any of the following action occurs:
-  - Connecting
   - Closing
+  - Connecting
   - MessageReceived
   - MessageSent
   - StateChanged
