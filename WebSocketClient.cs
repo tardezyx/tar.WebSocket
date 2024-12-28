@@ -62,11 +62,17 @@ namespace tar.WebSocket {
         CheckIfStateHasChanged();
       }
 
+      DateTime now = DateTime.UtcNow;
+
       var webSocketInfo = new WebSocketClientInfo() {
         ClientAction = clientAction,
         ClientActionDescription = clientAction.ToString(),
         Closed = _closed,
-        Duration = _closed != null && _opened != null ? _closed - _opened : null,
+        Duration = _opened != null && _closed != null
+          ? _closed - _opened
+          : _opened != null
+            ? now - _opened
+            : null,
         ErrorMessage = errorMessage,
         Opened = _opened,
         ReceivedMessage = receivedMessage,
@@ -76,7 +82,7 @@ namespace tar.WebSocket {
         State = _clientWebSocket?.State,
         StateDescription = _clientWebSocket?.State is WebSocketState state ? state.ToString() : null,
         Success = success,
-        Timestamp = DateTime.UtcNow,
+        Timestamp = now,
         TriggeredByClient = triggeredByClient,
         Url = _url
       };
